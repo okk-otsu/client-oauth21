@@ -1,3 +1,8 @@
 xcuserdata/
 *.xcuserdatad
 DerivedData/
+
+# Xcode
+xcuserdata/
+*.xcuserdatad
+DerivedData/
