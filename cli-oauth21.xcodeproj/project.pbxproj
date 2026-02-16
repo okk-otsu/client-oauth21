@@ -23,6 +23,11 @@
 			path = "cli-oauth21";
 			sourceTree = "<group>";
 		};
+		FA2884162F42EC0A00161FB1 /* Services */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Services;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -43,6 +48,7 @@
 		37CE96212EAEEF4100374FA4 = {
 			isa = PBXGroup;
 			children = (
+				FA2884162F42EC0A00161FB1 /* Services */,
 				37CE962C2EAEEF4100374FA4 /* cli-oauth21 */,
 				37CE962B2EAEEF4100374FA4 /* Products */,
 			);
@@ -73,6 +79,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				37CE962C2EAEEF4100374FA4 /* cli-oauth21 */,
+				FA2884162F42EC0A00161FB1 /* Services */,
 			);
 			name = "cli-oauth21";
 			packageProductDependencies = (

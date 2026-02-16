@@ -15,7 +15,11 @@ public class OAuth21Client: ObservableObject {
     @Published public var userInfo: [String: Any]?
     @Published public var errorMessage: String?
     
-    public init() {}
+    public init() {
+        if TokenStorage.shared.loadTokens() != nil {
+            self.isAuthenticated = true
+        }
+    }
     
     // MARK: - Client Registration
     public func registerClient(clientName: String) async throws {
@@ -150,13 +154,15 @@ public class OAuth21Client: ObservableObject {
         print("Tokens received: \(tokens.keys)")
         
         // Store tokens and update state
-        if let accessToken = tokens["access_token"] as? String {
-            KeychainHelper.shared.save(accessToken, for: "access_token")
-            print("Access token saved")
-        }
-        if let refreshToken = tokens["refresh_token"] as? String {
-            KeychainHelper.shared.save(refreshToken, for: "refresh_token")
-            print("Refresh token saved")
+        if let accessToken = tokens["access_token"] as? String,
+           let refreshToken = tokens["refresh_token"] as? String {
+
+            try? TokenStorage.shared.save(
+                tokens: OAuthTokens(
+                    accessToken: accessToken,
+                    refreshToken: refreshToken
+                )
+            )
         }
         
         await MainActor.run {
@@ -306,50 +312,32 @@ public class OAuth21Client: ObservableObject {
     
     // MARK: - User Info
     public func fetchUserInfo() async throws -> [String: Any] {
-        guard let accessToken = KeychainHelper.shared.load(for: "access_token") else {
-            throw OAuthError.notAuthenticated
+        let (data, http) = try await performAuthorizedRequest { accessToken in
+            guard let url = URL(string: "\(baseURL)/userinfo") else {
+                throw OAuthError.invalidURL
+            }
+            var request = URLRequest(url: url)
+            request.httpMethod = "GET"
+            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+            return request
         }
-        
-        guard let url = URL(string: "\(baseURL)/userinfo") else {
-            throw OAuthError.invalidURL
+
+        guard (200...299).contains(http.statusCode) else {
+            if http.statusCode == 401 {
+                TokenStorage.shared.clear()
+                throw OAuthError.notAuthenticated
+            }
+            throw OAuthError.serverError("HTTP \(http.statusCode)")
         }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        // Debug output
-        if let responseString = String(data: data, encoding: .utf8) {
-            print("=== USERINFO RESPONSE ===")
-            print("Status code: \((response as? HTTPURLResponse)?.statusCode ?? -1)")
-            print("Response: \(responseString)")
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw OAuthError.serverError("Invalid userinfo response format")
         }
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw OAuthError.serverError("Invalid response")
-        }
-        
-        guard httpResponse.statusCode == 200 else {
-            let errorMessage = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw OAuthError.serverError("Failed to fetch user info: \(errorMessage)")
-        }
-        
-        guard let userInfo = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw OAuthError.serverError("Invalid user info response format")
-        }
-        
-        await MainActor.run {
-            self.userInfo = userInfo
-        }
-        
-        return userInfo
+        return json
     }
     
     public func logout() {
-        KeychainHelper.shared.delete(for: "access_token")
-        KeychainHelper.shared.delete(for: "refresh_token")
+        TokenStorage.shared.clear()
         
         Task { @MainActor in
             isAuthenticated = false
@@ -363,6 +351,98 @@ public class OAuth21Client: ObservableObject {
         logout()
         clientId = nil
         UserDefaults.standard.removeObject(forKey: "oauth_client_id")
+    }
+    
+    // MARK: - refreshAccessToken
+    private func refreshAccessToken() async throws {
+        guard let tokens = TokenStorage.shared.loadTokens() else {
+            throw OAuthError.notAuthenticated
+        }
+        guard let clientId = clientId else {
+            throw OAuthError.serverError("Missing client_id")
+        }
+
+        let params: [String: String] = [
+            "grant_type": "refresh_token",
+            "refresh_token": tokens.refreshToken,
+            "client_id": clientId
+        ]
+
+        let bodyString = params
+            .map { "\($0.key)=\(urlEncode($0.value))" }
+            .joined(separator: "&")
+
+        guard let url = URL(string: "\(baseURL)/oauth/token") else {
+            throw OAuthError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+
+        request.httpBody = bodyString.data(using: .utf8)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let http = response as? HTTPURLResponse else {
+            throw OAuthError.serverError("Invalid response")
+        }
+
+        guard (200...299).contains(http.statusCode) else {
+            if http.statusCode == 401 {
+                TokenStorage.shared.clear()
+                throw OAuthError.notAuthenticated
+            }
+            throw OAuthError.serverError("Refresh failed: HTTP \(http.statusCode)")
+        }
+
+        guard
+            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let newAccess = json["access_token"] as? String,
+            let newRefresh = json["refresh_token"] as? String
+        else {
+            throw OAuthError.serverError("Invalid refresh token response format")
+        }
+
+        try TokenStorage.shared.save(tokens: .init(accessToken: newAccess, refreshToken: newRefresh))
+    }
+    // MARK: - urlEncode
+    private func urlEncode(_ s: String) -> String {
+        s.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? s
+    }
+    
+    // MARK: - performAuthorizedRequest
+    private func performAuthorizedRequest(_ makeRequest: (String) throws -> URLRequest) async throws -> (Data, HTTPURLResponse) {
+        guard let tokens = TokenStorage.shared.loadTokens() else {
+            throw OAuthError.notAuthenticated
+        }
+
+        // 1-я попытка
+        var req = try makeRequest(tokens.accessToken)
+        var (data, resp) = try await URLSession.shared.data(for: req)
+
+        guard let http = resp as? HTTPURLResponse else {
+            throw OAuthError.serverError("Invalid response")
+        }
+
+        // Если 401 — refresh и повтор
+        if http.statusCode == 401 {
+            try await refreshAccessToken()
+
+            guard let updated = TokenStorage.shared.loadTokens() else {
+                throw OAuthError.notAuthenticated
+            }
+
+            req = try makeRequest(updated.accessToken)
+            (data, resp) = try await URLSession.shared.data(for: req)
+
+            guard let http2 = resp as? HTTPURLResponse else {
+                throw OAuthError.serverError("Invalid response")
+            }
+            return (data, http2)
+        }
+
+        return (data, http)
     }
 }
 
@@ -385,48 +465,3 @@ public enum OAuthError: LocalizedError {
     }
 }
 
-// MARK: - Keychain Helper
-class KeychainHelper {
-    static let shared = KeychainHelper()
-    
-    private init() {}
-    
-    func save(_ data: String, for key: String) {
-        let data = Data(data.utf8)
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: key,
-            kSecValueData as String: data
-        ]
-        
-        SecItemDelete(query as CFDictionary)
-        SecItemAdd(query as CFDictionary, nil)
-    }
-    
-    func load(for key: String) -> String? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: key,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-        
-        var dataTypeRef: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &dataTypeRef)
-        
-        guard status == errSecSuccess, let data = dataTypeRef as? Data else {
-            return nil
-        }
-        
-        return String(data: data, encoding: .utf8)
-    }
-    
-    func delete(for key: String) {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: key
-        ]
-        
-        SecItemDelete(query as CFDictionary)
-    }
-}

@@ -176,12 +176,14 @@ struct ContentView: View {
                     Task { await getUserInfo() }
                 }
                 .buttonStyle(.bordered)
-                
+                .disabled(isLoading)
+
                 Button("Logout") {
                     logout()
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.red)
+                .disabled(isLoading)
             }
         }
     }
@@ -230,6 +232,7 @@ struct ContentView: View {
         .cornerRadius(8)
     }
     
+    @MainActor
     private func registerClient() async {
         isLoading = true
         defer { isLoading = false }
@@ -245,6 +248,7 @@ struct ContentView: View {
         }
     }
     
+    @MainActor
     private func registerUser() async {
         isLoading = true
         defer { isLoading = false }
@@ -260,6 +264,7 @@ struct ContentView: View {
         }
     }
     
+    @MainActor
     private func authenticate() async {
         isLoading = true
         defer { isLoading = false }
@@ -277,14 +282,17 @@ struct ContentView: View {
         }
     }
     
+    @MainActor
     private func getUserInfo() async {
         isLoading = true
         defer { isLoading = false }
-        
+
         do {
-            _ = try await oauthClient.fetchUserInfo()
+            let info = try await oauthClient.fetchUserInfo()
+            oauthClient.userInfo = info
+            oauthClient.errorMessage = nil
         } catch {
-            await MainActor.run { oauthClient.errorMessage = error.localizedDescription }
+            oauthClient.errorMessage = error.localizedDescription
         }
     }
     

@@ -9,7 +9,7 @@ import SwiftUI
 struct cli_oauth21App: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
         }
     }
 }
