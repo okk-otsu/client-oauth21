@@ -444,6 +444,16 @@ public class OAuth21Client: ObservableObject {
 
         return (data, http)
     }
+
+    public func accessTokenExpirationDate() -> Date? {
+        guard let tokens = TokenStorage.shared.loadTokens() else { return nil }
+        return JWT.expirationDate(from: tokens.accessToken)
+    }
+
+    public func secondsUntilAccessTokenExpires(from now: Date = Date()) -> Int? {
+        guard let exp = accessTokenExpirationDate() else { return nil }
+        return Int(exp.timeIntervalSince(now))
+    }
 }
 
 // MARK: - Error Handling

@@ -12,6 +12,8 @@ struct ContentView: View {
     @State private var password = ""
     @State private var clientName = "Demo iOS App"
     @State private var isLoading = false
+    @State private var now = Date()
+    private let ticker = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     @State private var currentStep = 0 // 0: начальный, 1: клиент зарегистрирован, 2: пользователь зарегистрирован, 3: аутентифицирован
     
     var body: some View {
@@ -26,7 +28,7 @@ struct ContentView: View {
                     .foregroundColor(.secondary)
                 
                 if oauthClient.isAuthenticated {
-                    authenticatedView
+                    authenticatedView.onReceive(ticker) { now = $0 }
                 } else {
                     authenticationView
                 }
@@ -166,6 +168,20 @@ struct ContentView: View {
             Text("Authenticated Successfully!")
                 .font(.title2)
                 .foregroundColor(.green)
+            
+            if let expDate = oauthClient.accessTokenExpirationDate() {
+                let seconds = oauthClient.secondsUntilAccessTokenExpires(from: now) ?? 0
+
+                VStack(spacing: 6) {
+                    Text("Access token exp: \(expDate.formatted(date: .numeric, time: .standard))")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                    Text("Expires in: \(max(seconds, 0)) sec")
+                        .font(.headline)
+                        .foregroundStyle(seconds <= 60 ? .red : .primary)
+                }
+            }
             
             if let userInfo = oauthClient.userInfo {
                 userInfoView(userInfo)
