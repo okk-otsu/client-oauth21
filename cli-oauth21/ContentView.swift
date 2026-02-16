@@ -169,15 +169,19 @@ struct ContentView: View {
                 .font(.title2)
                 .foregroundColor(.green)
             
-            if let expDate = oauthClient.accessTokenExpirationDate() {
-                let seconds = oauthClient.secondsUntilAccessTokenExpires(from: now) ?? 0
+            if let expDate = oauthClient.accessTokenExpirationDate(),
+               let seconds = oauthClient.secondsUntilAccessTokenExpires(from: now) {
 
-                VStack(spacing: 6) {
-                    Text("Access token exp: \(expDate.formatted(date: .numeric, time: .standard))")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                Text("Access token exp: \(expDate.formatted(date: .numeric, time: .standard))")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
 
-                    Text("Expires in: \(max(seconds, 0)) sec")
+                if seconds <= 0 {
+                    Text("Token expired")
+                        .foregroundStyle(.red)
+                        .font(.headline)
+                } else {
+                    Text("Expires in: \(seconds) sec")
                         .font(.headline)
                         .foregroundStyle(seconds <= 60 ? .red : .primary)
                 }

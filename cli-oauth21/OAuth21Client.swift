@@ -74,39 +74,36 @@ public class OAuth21Client: ObservableObject {
         guard let url = URL(string: "\(baseURL)/user/register") else {
             throw OAuthError.invalidURL
         }
-        
+
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
+
         let body: [String: Any] = [
             "username": username,
             "password": password
         ]
-        
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        
+
         let (data, response) = try await URLSession.shared.data(for: request)
-        
-        // Debug output
+
         if let responseString = String(data: data, encoding: .utf8) {
             print("User registration response: \(responseString)")
         }
-        
+
         guard let httpResponse = response as? HTTPURLResponse else {
             throw OAuthError.serverError("Invalid response from server")
         }
-        
+
         print("User registration status: \(httpResponse.statusCode)")
-        
+
         if httpResponse.statusCode == 201 {
             print("User \(username) registered successfully")
-        } else {
-            let errorMessage = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw OAuthError.serverError("User registration failed: \(errorMessage)")
+            return
         }
+
+        throw mapHTTPError(httpResponse, data: data)
     }
-    
     // MARK: - OAuth 2.1 Authentication Flow
     public func authenticate(username: String, password: String) async throws -> [String: Any] {
         // Восстанавливаем clientId если он был сохранен
@@ -312,30 +309,33 @@ public class OAuth21Client: ObservableObject {
     
     // MARK: - User Info
     public func fetchUserInfo() async throws -> [String: Any] {
-        let (data, http) = try await performAuthorizedRequest { accessToken in
-            guard let url = URL(string: "\(baseURL)/userinfo") else {
-                throw OAuthError.invalidURL
+        do {
+            let (data, http) = try await performAuthorizedRequest { accessToken in
+                guard let url = URL(string: "\(baseURL)/userinfo") else {
+                    throw APIError.badRequest(message: "Неверный URL")
+                }
+                var request = URLRequest(url: url)
+                request.httpMethod = "GET"
+                request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+                return request
             }
-            var request = URLRequest(url: url)
-            request.httpMethod = "GET"
-            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-            return request
-        }
 
-        guard (200...299).contains(http.statusCode) else {
-            if http.statusCode == 401 {
-                TokenStorage.shared.clear()
-                throw OAuthError.notAuthenticated
+            guard (200...299).contains(http.statusCode) else {
+                throw mapHTTPError(http, data: data)
             }
-            throw OAuthError.serverError("HTTP \(http.statusCode)")
-        }
 
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw OAuthError.serverError("Invalid userinfo response format")
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                throw APIError.decoding
+            }
+            return json
+        } catch let urlErr as URLError {
+            // таймаут/нет сети и т.п.
+            if urlErr.code == .notConnectedToInternet || urlErr.code == .timedOut {
+                throw APIError.network
+            }
+            throw urlErr
         }
-        return json
     }
-    
     public func logout() {
         TokenStorage.shared.clear()
         
@@ -389,11 +389,7 @@ public class OAuth21Client: ObservableObject {
         }
 
         guard (200...299).contains(http.statusCode) else {
-            if http.statusCode == 401 {
-                TokenStorage.shared.clear()
-                throw OAuthError.notAuthenticated
-            }
-            throw OAuthError.serverError("Refresh failed: HTTP \(http.statusCode)")
+            throw mapHTTPError(http, data: data)
         }
 
         guard
@@ -453,6 +449,29 @@ public class OAuth21Client: ObservableObject {
     public func secondsUntilAccessTokenExpires(from now: Date = Date()) -> Int? {
         guard let exp = accessTokenExpirationDate() else { return nil }
         return Int(exp.timeIntervalSince(now))
+    }
+    
+    private func mapHTTPError(_ http: HTTPURLResponse, data: Data?) -> APIError {
+        let status = http.statusCode
+
+        // Попробуем вытащить {"error": "..."} или {"message": "..."} из JSON
+        var message: String? = nil
+        if let data,
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            message = (obj["message"] as? String) ?? (obj["error"] as? String)
+        }
+
+        switch status {
+        case 400:
+            return .badRequest(message: message)
+        case 401:
+            return .unauthorized
+        case 429:
+            let retryAfter = http.value(forHTTPHeaderField: "Retry-After").flatMap(Int.init)
+            return .rateLimited(retryAfter: retryAfter)
+        default:
+            return .server(status: status, message: message)
+        }
     }
 }
 
