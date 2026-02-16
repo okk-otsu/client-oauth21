@@ -423,19 +423,26 @@ public class OAuth21Client: ObservableObject {
 
         // Если 401 — refresh и повтор
         if http.statusCode == 401 {
-            try await refreshAccessToken()
+            try await TokenRefresher.shared.refreshIfNeeded {
+                try await self.refreshAccessToken()
+            }
 
             guard let updated = TokenStorage.shared.loadTokens() else {
-                throw OAuthError.notAuthenticated
+                throw APIError.unauthorized
             }
 
             req = try makeRequest(updated.accessToken)
-            (data, resp) = try await URLSession.shared.data(for: req)
-
-            guard let http2 = resp as? HTTPURLResponse else {
-                throw OAuthError.serverError("Invalid response")
+            let (data2, resp2) = try await URLSession.shared.data(for: req)
+            guard let http2 = resp2 as? HTTPURLResponse else {
+                throw APIError.server(status: 0, message: "Invalid response")
             }
-            return (data, http2)
+
+            if http2.statusCode == 401 {
+                TokenStorage.shared.clear()
+                throw APIError.unauthorized
+            }
+
+            return (data2, http2)
         }
 
         return (data, http)
