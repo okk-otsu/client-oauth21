@@ -20,7 +20,6 @@ final class KeychainService {
     private let service = Bundle.main.bundleIdentifier ?? "cli-oauth21"
 
     func save(_ value: Data, account: String) throws {
-        // delete old
         try? delete(account: account)
 
         let query: [String: Any] = [

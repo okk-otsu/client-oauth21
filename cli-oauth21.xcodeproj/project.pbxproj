@@ -23,6 +23,21 @@
 			path = "cli-oauth21";
 			sourceTree = "<group>";
 		};
+		FA2475542F54636A00356259 /* Models */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Models;
+			sourceTree = "<group>";
+		};
+		FA2475632F5463EF00356259 /* ViewModels */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		FA2475672F5467D900356259 /* Views */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Views;
+			sourceTree = "<group>";
+		};
 		FA2884162F42EC0A00161FB1 /* Services */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Services;
@@ -48,6 +63,9 @@
 		37CE96212EAEEF4100374FA4 = {
 			isa = PBXGroup;
 			children = (
+				FA2475672F5467D900356259 /* Views */,
+				FA2475632F5463EF00356259 /* ViewModels */,
+				FA2475542F54636A00356259 /* Models */,
 				FA2884162F42EC0A00161FB1 /* Services */,
 				37CE962C2EAEEF4100374FA4 /* cli-oauth21 */,
 				37CE962B2EAEEF4100374FA4 /* Products */,
@@ -79,6 +97,9 @@
 			);
 			fileSystemSynchronizedGroups = (
 				37CE962C2EAEEF4100374FA4 /* cli-oauth21 */,
+				FA2475542F54636A00356259 /* Models */,
+				FA2475632F5463EF00356259 /* ViewModels */,
+				FA2475672F5467D900356259 /* Views */,
 				FA2884162F42EC0A00161FB1 /* Services */,
 			);
 			name = "cli-oauth21";

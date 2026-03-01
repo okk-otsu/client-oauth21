@@ -21,7 +21,6 @@ enum JWT {
     static func expirationDate(from token: String) -> Date? {
         guard let payload = payload(from: token) else { return nil }
 
-        // exp обычно Int (секунды unix time)
         if let exp = payload["exp"] as? TimeInterval {
             return Date(timeIntervalSince1970: exp)
         }
