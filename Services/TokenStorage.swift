@@ -7,11 +7,6 @@
 
 import Foundation
 
-struct OAuthTokens: Codable, Equatable {
-    let accessToken: String
-    let refreshToken: String
-}
-
 final class TokenStorage {
     static let shared = TokenStorage()
     private init() {}
