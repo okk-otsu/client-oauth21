@@ -80,8 +80,6 @@ final class AuthViewModel: ObservableObject {
                 do {
                     try await api.registerUser(username: username, password: password)
                 } catch let apiErr as APIError {
-                    // ✅ UX: если юзер уже существует — не показываем "Неверный запрос"
-                    // а даём нормальный текст и переключаемся на Login.
                     if case .badRequest(let message) = apiErr,
                        Self.looksLikeUserExists(message) {
                         self.mode = .login

@@ -424,7 +424,7 @@ public final class OAuthAPI {
                 throw APIError.server(status: 0, message: "Invalid response")
             }
             return (data, http)
-        } catch let _ as URLError {
+        } catch _ as URLError {
             throw APIError.network
         }
     }
