@@ -27,9 +27,9 @@ struct ContentView: View {
                             .padding(.horizontal, 16)
                             .padding(.top, 12)
                     } else {
-                        authView
-                            .padding(.horizontal, 20)
-                            .padding(.top, 12)
+                        loginView
+                            .padding(.horizontal, 24)
+                            .padding(.top, 28)
                     }
                 }
             }
@@ -49,7 +49,6 @@ struct ContentView: View {
         }
     }
 
-    // MARK: Checking
     private var checkingView: some View {
         VStack(spacing: 16) {
             ProgressView()
@@ -61,50 +60,96 @@ struct ContentView: View {
         .padding(.top, 12)
     }
 
-    // MARK: Auth
-    private var authView: some View {
-        VStack(spacing: 16) {
-            Picker("Mode", selection: $vm.mode) {
-                ForEach(AuthViewModel.AuthMode.allCases) { mode in
-                    Text(mode.rawValue).tag(mode)
-                }
+    private var loginView: some View {
+        VStack(spacing: 22) {
+
+            Spacer(minLength: 40)
+
+            Text("Log In")
+                .font(.system(size: 32, weight: .semibold))
+
+            VStack(spacing: 16) {
+
+                // Username
+                TextField("Username", text: $vm.username)
+                    .font(.system(size: 18))
+                    .padding(.vertical, 16)
+                    .padding(.horizontal, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(.secondarySystemGroupedBackground))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color(.separator).opacity(0.4), lineWidth: 0.5)
+                    )
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+
+                // Password
+                SecureField("Password", text: $vm.password)
+                    .font(.system(size: 18))
+                    .padding(.vertical, 16)
+                    .padding(.horizontal, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(.secondarySystemGroupedBackground))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color(.separator).opacity(0.4), lineWidth: 0.5)
+                    )
             }
-            .pickerStyle(.segmented)
 
-            TextField("Username", text: $vm.username)
-                .textFieldStyle(.roundedBorder)
-                .textInputAutocapitalization(.never)
-
-            SecureField("Password", text: $vm.password)
-                .textFieldStyle(.roundedBorder)
-
-            Button(vm.mode == .login ? "Login" : "Register & Login") {
+            // Login button
+            Button {
+                vm.mode = .login
                 Task { await vm.continueAuth() }
+            } label: {
+                Text("Log In")
+                    .font(.system(size: 18, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
             }
             .buttonStyle(.borderedProminent)
             .disabled(vm.username.isEmpty || vm.password.isEmpty)
 
-            Button("Reset All") {
-                vm.resetAll()
+            // Register button (такой же размер)
+            Button {
+                vm.mode = .register
+                Task { await vm.continueAuth() }
+            } label: {
+                Text("Register & Login")
+                    .font(.system(size: 18, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
             }
-            .foregroundColor(.red)
-            .font(.caption)
-        }
-        .padding()
-        .background(Color(.secondarySystemGroupedBackground))
-        .cornerRadius(16)
-        .frame(maxWidth: 520)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-    }
+            .buttonStyle(.borderedProminent)
+            .tint(.gray.opacity(0.6))
+            .disabled(vm.username.isEmpty || vm.password.isEmpty)
 
-    // MARK: Profile
+            Spacer(minLength: 10)
+
+            Button {
+                vm.resetAll()
+            } label: {
+                Text("Reset All")
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            .foregroundStyle(.red)
+
+            Spacer()
+        }
+        .frame(maxWidth: 420)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    // MARK: Profile (оставил как было)
     private var profileView: some View {
         let profile = vm.userInfo.flatMap { UserProfile(from: $0) }
         let tileMinWidth: CGFloat = 380
 
         return ScrollView(showsIndicators: false) {
             VStack(spacing: 18) {
-
                 HStack() {
                     avatar
                         .padding(.top, 12)
@@ -221,14 +266,10 @@ struct ContentView: View {
     }
 
     private func expiresText(now: Date) -> String {
-        guard let seconds = vm.secondsUntilAccessTokenExpires(from: now) else {
-            return "—"
-        }
+        guard let seconds = vm.secondsUntilAccessTokenExpires(from: now) else { return "—" }
         if seconds <= 0 { return "0 сек" }
-
         let mins = seconds / 60
         let secs = seconds % 60
-
         return mins >= 1 ? "\(mins) мин" : "\(secs) сек"
     }
 
@@ -237,25 +278,20 @@ struct ContentView: View {
             if vm.isLoading {
                 ZStack {
                     Color.black.opacity(0.3).ignoresSafeArea()
-                    ProgressView()
-                        .scaleEffect(1.5)
+                    ProgressView().scaleEffect(1.5)
                 }
             }
         }
     }
 }
 
-// MARK: - Tile width helper
 private extension View {
     func tileWidth(min: CGFloat) -> some View {
         self
             .frame(maxWidth: .infinity)
             .frame(minWidth: min)
     }
-}
 
-// MARK: - Settings-like card style
-private extension View {
     func settingsCardStyle() -> some View {
         self
             .background(
