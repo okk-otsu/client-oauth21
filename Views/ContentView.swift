@@ -30,6 +30,8 @@ struct ContentView: View {
             }
             .navigationBarHidden(true)
             .overlay(loadingOverlay)
+
+            // ERROR
             .alert(
                 "Error",
                 isPresented: Binding(
@@ -40,6 +42,19 @@ struct ContentView: View {
                 Button("OK") { vm.error = nil }
             } message: {
                 Text(vm.error ?? "")
+            }
+
+            // ✅ SUCCESS (Task 4)
+            .alert(
+                "Готово",
+                isPresented: Binding(
+                    get: { vm.successMessage != nil },
+                    set: { if !$0 { vm.successMessage = nil } }
+                )
+            ) {
+                Button("OK") { vm.successMessage = nil }
+            } message: {
+                Text(vm.successMessage ?? "")
             }
         }
     }
@@ -73,7 +88,7 @@ struct ContentView: View {
             SecureField("Password", text: $vm.password)
                 .textFieldStyle(.roundedBorder)
 
-            Button(vm.mode == .login ? "Login" : "Register and Login") {
+            Button(vm.mode == .login ? "Login" : "Register & Login") {
                 Task { await vm.continueAuth() }
             }
             .buttonStyle(.borderedProminent)
@@ -95,7 +110,6 @@ struct ContentView: View {
     // MARK: Profile
     private var profileView: some View {
         let profile = vm.userInfo.flatMap { UserProfile(from: $0) }
-
         let tileMinWidth: CGFloat = 380
 
         return ScrollView(showsIndicators: false) {
@@ -106,8 +120,7 @@ struct ContentView: View {
                         .padding(.top, 12)
                         .padding(.bottom, 6)
                     Spacer()
-                }
-                .padding(10)
+                }.padding(10)
 
                 VStack(alignment: .leading, spacing: 0) {
                     profileRow(title: "ID", value: profile?.sub ?? "—")
@@ -119,15 +132,16 @@ struct ContentView: View {
                 .tileWidth(min: tileMinWidth)
                 .cardStyle()
 
+                Spacer()
 
                 VStack(spacing: 14) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: 6) {
                         Image(systemName: "clock")
-                            .font(.system(size: 22, weight: .semibold))
+                            .font(.headline)
                             .foregroundStyle(.secondary)
 
                         Text("Истекает через:")
-                            .font(.system(size: 22, weight: .semibold))
+                            .font(.headline)
                             .foregroundStyle(.secondary)
                     }
 
@@ -139,6 +153,7 @@ struct ContentView: View {
                 .tileWidth(min: tileMinWidth)
                 .cardStyle()
 
+                Spacer()
 
                 Button {
                     Task { await vm.refreshTokenManually() }
@@ -175,7 +190,6 @@ struct ContentView: View {
                 .foregroundStyle(.red)
                 .tileWidth(min: tileMinWidth)
                 .cardStyle()
-                Spacer()
             }
             .frame(maxWidth: 560)
             .frame(maxWidth: .infinity)
@@ -188,7 +202,7 @@ struct ContentView: View {
             .frame(width: 125, height: 125)
             .overlay(
                 Image(systemName: "person.fill")
-                    .font(.system(size: 90, weight: .semibold))
+                    .font(.system(size: 42, weight: .semibold))
                     .foregroundStyle(.secondary)
             )
             .overlay(
@@ -200,11 +214,10 @@ struct ContentView: View {
 
     private func profileRow(title: String, value: String) -> some View {
         HStack(alignment: .center, spacing: 12) {
-
             Text(title)
                 .font(.system(size: 18, weight: .medium))
                 .foregroundStyle(.secondary)
-                .frame(width: 190, alignment: .leading)
+                .frame(width: 170, alignment: .leading)
 
             Text(value)
                 .font(.system(size: 20, weight: .semibold))
@@ -213,7 +226,7 @@ struct ContentView: View {
                 .truncationMode(.tail)
                 .frame(maxWidth: .infinity, alignment: .trailing)
         }
-        .padding(.vertical, 20)   
+        .padding(.vertical, 18)
         .padding(.horizontal, 18)
     }
 
@@ -225,7 +238,6 @@ struct ContentView: View {
 
         let mins = seconds / 60
         let secs = seconds % 60
-
         return mins >= 1 ? "\(mins) мин" : "\(secs) сек"
     }
 
@@ -242,17 +254,13 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Tile width helper
 private extension View {
     func tileWidth(min: CGFloat) -> some View {
         self
             .frame(maxWidth: .infinity)
             .frame(minWidth: min)
     }
-}
 
-// MARK: - Card Style
-private extension View {
     func cardStyle() -> some View {
         self
             .background(

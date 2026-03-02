@@ -18,14 +18,15 @@ final class AuthViewModel: ObservableObject {
     @Published var username: String = ""
     @Published var password: String = ""
     @Published var clientName: String = "Demo iOS App"
-
     @Published var mode: AuthMode = .login
 
     @Published var isLoading: Bool = false
     @Published var isAuthenticated: Bool = false
     @Published var isCheckingSession: Bool = true
+
     @Published var userInfo: [String: Any]?
     @Published var error: String?
+    @Published var successMessage: String?
 
     private let api: OAuthAPI
 
@@ -38,7 +39,6 @@ final class AuthViewModel: ObservableObject {
         UserDefaults.standard.string(forKey: OAuthAPI.clientIdDefaultsKey) != nil
     }
 
-    // MARK: - Task 2: App bootstrap
     func bootstrapOnLaunch() async {
         isCheckingSession = true
         defer { isCheckingSession = false }
@@ -71,26 +71,42 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Unified auth action (single screen)
     func continueAuth() async {
         isLoading = true
         defer { isLoading = false }
 
         do {
             if mode == .register {
-                try await api.registerUser(username: username, password: password)
+                do {
+                    try await api.registerUser(username: username, password: password)
+                } catch let apiErr as APIError {
+                    // ✅ UX: если юзер уже существует — не показываем "Неверный запрос"
+                    // а даём нормальный текст и переключаемся на Login.
+                    if case .badRequest(let message) = apiErr,
+                       Self.looksLikeUserExists(message) {
+                        self.mode = .login
+                        self.error = "Пользователь уже существует. Войдите."
+                        return
+                    }
+                    throw apiErr
+                }
             }
 
-            _ = try await api.authenticate(username: username, password: password)
+            _ = try await api.authenticate(
+                username: username,
+                password: password,
+                clientNameForAutoRegistration: clientName
+            )
 
             isAuthenticated = true
             error = nil
 
-            do {
-                userInfo = try await api.fetchUserInfo()
-            } catch {
-                print("fetchUserInfo failed after auth:", error)
-                userInfo = nil
+            userInfo = try await api.fetchUserInfo()
+
+            if mode == .login {
+                successMessage = "Вы вошли в аккаунт."
+            } else {
+                successMessage = "Регистрация и вход выполнены."
             }
         } catch {
             self.error = Self.describe(error)
@@ -98,18 +114,25 @@ final class AuthViewModel: ObservableObject {
     }
 
     func getUserInfo() async {
-        await run { [self] in
-            userInfo = try await api.fetchUserInfo()
+        await run {
+            self.userInfo = try await self.api.fetchUserInfo()
         }
     }
 
-    // MARK: - Logout (Task 2)
+    func refreshTokenManually() async {
+        await run {
+            try await self.api.refreshTokensManually(clientNameForAutoRegistration: self.clientName)
+            self.userInfo = try await self.api.fetchUserInfo()
+            self.successMessage = "Токен обновлён."
+        }
+    }
+
     func logout() async {
         isLoading = true
         defer { isLoading = false }
 
         do {
-            try await api.revokeAccessToken()
+            try await api.revokeAccessToken(clientNameForAutoRegistration: clientName)
         } catch {
             print("revoke failed:", error)
         }
@@ -131,6 +154,7 @@ final class AuthViewModel: ObservableObject {
         isAuthenticated = false
         mode = .login
         error = nil
+        successMessage = nil
     }
 
     func accessTokenExpirationDate() -> Date? {
@@ -141,7 +165,6 @@ final class AuthViewModel: ObservableObject {
         api.secondsUntilAccessTokenExpires(from: now)
     }
 
-    // MARK: - Helpers
     private func run(_ work: @escaping () async throws -> Void) async {
         isLoading = true
         defer { isLoading = false }
@@ -154,17 +177,32 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
+    private static func looksLikeUserExists(_ message: String?) -> Bool {
+        guard let m = message?.lowercased() else { return false }
+        return m.contains("exists") || m.contains("already") || m.contains("занят") || m.contains("существ")
+    }
+
     private static func describe(_ error: Error) -> String {
+        if let api = error as? APIError {
+            switch api {
+            case .badRequest:
+                return "Неверный запрос. Проверьте данные."
+            case .unauthorized:
+                return "Сессия истекла. Войдите снова."
+            case .rateLimited:
+                return "Слишком много попыток. Подождите немного."
+            case .network:
+                return "Нет соединения с сервером."
+            case .server(let status, _):
+                return "Ошибка сервера (HTTP \(status)). Попробуйте позже."
+            case .decoding:
+                return "Ошибка обработки ответа сервера."
+            }
+        }
+
         if let le = error as? LocalizedError, let desc = le.errorDescription {
             return desc
         }
         return String(describing: error)
-    }
-    
-    func refreshTokenManually() async {
-        await run { [self] in
-            try await api.refreshTokensManually()
-            userInfo = try await api.fetchUserInfo()
-        }
     }
 }

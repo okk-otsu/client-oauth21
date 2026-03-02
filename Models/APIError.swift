@@ -12,24 +12,27 @@ enum APIError: LocalizedError, Equatable {
     case unauthorized
     case rateLimited(retryAfter: Int?)
     case server(status: Int, message: String?)
-    case network
     case decoding
+    case network
 
     var errorDescription: String? {
         switch self {
-        case .badRequest(let msg):
-            return msg ?? "Неверный запрос. Проверьте введённые данные."
+        case .badRequest:
+            return "Неверный запрос. Проверьте данные."
         case .unauthorized:
             return "Сессия истекла. Войдите снова."
         case .rateLimited(let retryAfter):
-            if let s = retryAfter { return "Слишком много запросов. Подождите \(s) сек." }
-            return "Слишком много запросов. Подождите немного и попробуйте снова."
+            if let s = retryAfter {
+                return "Слишком много попыток. Подождите \(s) сек."
+            } else {
+                return "Слишком много попыток. Подождите немного."
+            }
         case .server(let status, _):
             return "Ошибка сервера (HTTP \(status)). Попробуйте позже."
-        case .network:
-            return "Проблема с интернетом. Проверьте соединение."
         case .decoding:
-            return "Не удалось обработать ответ сервера."
+            return "Ошибка обработки ответа сервера."
+        case .network:
+            return "Нет соединения с сервером."
         }
     }
 }

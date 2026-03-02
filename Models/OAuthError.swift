@@ -8,25 +8,25 @@
 
 import Foundation
 
-enum OAuthError: LocalizedError {
+enum OAuthError: LocalizedError, Equatable {
     case invalidURL
     case clientNotRegistered
-    case serverError(String)
-    case invalidResponse(String)
+    case invalidResponse
     case notAuthenticated
+    case internalError(String)
 
     var errorDescription: String? {
         switch self {
         case .invalidURL:
-            return "Invalid URL"
+            return "Неверный URL сервера."
         case .clientNotRegistered:
-            return "Client not registered (call Register Client)"
-        case .serverError(let message):
-            return "Server error: \(message)"
-        case .invalidResponse(let details):
-            return "Authorization failed: \(details)"
+            return "Клиент не зарегистрирован. Попробуйте сбросить и начать заново."
+        case .invalidResponse:
+            return "Неожиданный ответ сервера."
         case .notAuthenticated:
-            return "Not authenticated"
+            return "Вы не авторизованы."
+        case .internalError(let msg):
+            return msg
         }
     }
 }
