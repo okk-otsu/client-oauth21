@@ -442,6 +442,14 @@ public final class OAuthAPI {
             message = s
         }
 
+        if let msg = message?.lowercased() {
+            if msg.contains("user already exists") {
+                message = String(localized: "error.userAlreadyExists")
+            } else if msg.contains("invalid credentials") {
+                message = String(localized: "error.invalidCredentials")
+            }
+        }
+
         switch status {
         case 400:
             return .badRequest(message: message)
@@ -453,5 +461,4 @@ public final class OAuthAPI {
         default:
             return .server(status: status, message: message)
         }
-    }
-}
+    }}

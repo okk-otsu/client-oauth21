@@ -1,0 +1,39 @@
+/* 
+  Localizable.strings
+  cli-oauth21
+
+  Created by MacBook on 02.03.2026.
+  
+*/
+
+"common.ok" = "OK";
+"common.error.title" = "Error";
+"common.done.title" = "Done";
+
+"auth.checking" = "Checking session…";
+"auth.title.login" = "Log In";
+"auth.field.username" = "Username";
+"auth.field.password" = "Password";
+"auth.action.login" = "Log In";
+"auth.action.registerLogin" = "Register & Login";
+"auth.action.resetAll" = "Reset All";
+
+"profile.field.id" = "ID";
+"profile.field.username" = "Username";
+"profile.field.updated" = "Last updated";
+"profile.expires" = "Expires in:";
+"profile.refresh" = "Refresh token";
+"profile.logout" = "Log out";
+
+"time.zeroSeconds" = "0 sec";
+"time.seconds" = "%d sec";
+"time.minutes" = "%d min";
+
+"error.rateLimited.retryAfter" = "Too many requests. Please wait %d sec.";
+"error.rateLimited.default" = "Too many requests. Please wait and try again.";
+"error.invalidCredentials" = "Invalid credentials.";
+"error.userAlreadyExists" = "User already exists. Please log in.";
+
+"success.loggedIn" = "You are logged in.";
+"success.registeredAndLoggedIn" = "Registration and login completed.";
+"success.tokenRefreshed" = "Token refreshed.";

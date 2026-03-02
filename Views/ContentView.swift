@@ -14,45 +14,57 @@ struct ContentView: View {
 
     var body: some View {
         NavigationView {
-            ZStack {
-                Color(.systemGroupedBackground)
-                    .ignoresSafeArea()
-
-                Group {
-                    if vm.isCheckingSession {
-                        checkingView
-                    } else if vm.isAuthenticated {
-                        profileView
-                            .onReceive(ticker) { now = $0 }
-                            .padding(.horizontal, 16)
-                            .padding(.top, 12)
-                    } else {
-                        loginView
-                            .padding(.horizontal, 24)
-                            .padding(.top, 28)
-                    }
+            Group {
+                if vm.isCheckingSession {
+                    checkingView
+                } else if vm.isAuthenticated {
+                    profileView
+                        .onReceive(ticker) { now = $0 }
+                        .padding(.horizontal, 10)
+                        .padding(.top, 12)
+                } else {
+                    loginView
+                        .padding(.horizontal, 20)
+                        .padding(.top, 12)
                 }
             }
             .navigationBarHidden(true)
             .overlay(loadingOverlay)
             .alert(
-                vm.successMessage == nil ? "Error" : "Готово",
+                String(localized: "common.error.title"),
                 isPresented: Binding(
-                    get: { vm.error != nil || vm.successMessage != nil },
-                    set: { if !$0 { vm.error = nil; vm.successMessage = nil } }
+                    get: { vm.errorMessage != nil },
+                    set: { if !$0 { vm.errorMessage = nil } }
                 )
             ) {
-                Button("OK") { vm.error = nil; vm.successMessage = nil }
+                Button(String(localized: "common.ok")) {
+                    vm.errorMessage = nil
+                }
             } message: {
-                Text(vm.successMessage ?? vm.error ?? "")
+                Text(vm.errorMessage ?? "")
+            }
+
+            .alert(
+                String(localized: "common.done.title"),
+                isPresented: Binding(
+                    get: { vm.successMessage != nil },
+                    set: { if !$0 { vm.successMessage = nil } }
+                )
+            ) {
+                Button(String(localized: "common.ok")) {
+                    vm.successMessage = nil
+                }
+            } message: {
+                Text(vm.successMessage ?? "")
             }
         }
     }
 
+    // MARK: - Checking
     private var checkingView: some View {
         VStack(spacing: 16) {
             ProgressView()
-            Text("Checking session…")
+            Text(String(localized: "auth.checking"))
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -60,18 +72,16 @@ struct ContentView: View {
         .padding(.top, 12)
     }
 
+    // MARK: - Login Screen
     private var loginView: some View {
         VStack(spacing: 22) {
-
             Spacer(minLength: 40)
 
-            Text("Log In")
+            Text(String(localized: "auth.title.login"))
                 .font(.system(size: 32, weight: .semibold))
 
             VStack(spacing: 16) {
-
-                // Username
-                TextField("Username", text: $vm.username)
+                TextField(String(localized: "auth.field.username"), text: $vm.username)
                     .font(.system(size: 18))
                     .padding(.vertical, 16)
                     .padding(.horizontal, 14)
@@ -86,8 +96,7 @@ struct ContentView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
 
-                // Password
-                SecureField("Password", text: $vm.password)
+                SecureField(String(localized: "auth.field.password"), text: $vm.password)
                     .font(.system(size: 18))
                     .padding(.vertical, 16)
                     .padding(.horizontal, 14)
@@ -101,28 +110,26 @@ struct ContentView: View {
                     )
             }
 
-            // Login button
             Button {
                 vm.mode = .login
                 Task { await vm.continueAuth() }
             } label: {
-                Text("Log In")
+                Text(String(localized: "auth.action.login"))
                     .font(.system(size: 18, weight: .semibold))
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 16)
             }
             .buttonStyle(.borderedProminent)
             .disabled(vm.username.isEmpty || vm.password.isEmpty)
 
-            // Register button (такой же размер)
             Button {
                 vm.mode = .register
                 Task { await vm.continueAuth() }
             } label: {
-                Text("Register & Login")
+                Text(String(localized: "auth.action.registerLogin"))
                     .font(.system(size: 18, weight: .semibold))
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 16)
             }
             .buttonStyle(.borderedProminent)
             .tint(.gray.opacity(0.6))
@@ -133,7 +140,7 @@ struct ContentView: View {
             Button {
                 vm.resetAll()
             } label: {
-                Text("Reset All")
+                Text(String(localized: "auth.action.resetAll"))
                     .font(.system(size: 14, weight: .semibold))
             }
             .foregroundStyle(.red)
@@ -143,7 +150,8 @@ struct ContentView: View {
         .frame(maxWidth: 420)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-    // MARK: Profile (оставил как было)
+
+    // MARK: - Profile
     private var profileView: some View {
         let profile = vm.userInfo.flatMap { UserProfile(from: $0) }
         let tileMinWidth: CGFloat = 380
@@ -159,25 +167,25 @@ struct ContentView: View {
                 .padding(10)
 
                 VStack(alignment: .leading, spacing: 0) {
-                    profileRow(title: "ID", value: profile?.sub ?? "—")
-                    Divider().opacity(0.35)
-                    profileRow(title: "Имя пользователя", value: profile?.displayUsername ?? "—")
-                    Divider().opacity(0.35)
-                    profileRow(title: "Дата обновления", value: profile?.updatedAtText ?? "—")
+                    profileRow(title: String(localized: "profile.field.id"), value: profile?.sub ?? "—")
+                    Divider().opacity(0.5)
+                    profileRow(title: String(localized: "profile.field.username"), value: profile?.displayUsername ?? "—")
+                    Divider().opacity(0.5)
+                    profileRow(title: String(localized: "profile.field.updated"), value: profile?.updatedAtText ?? "—")
                 }
                 .tileWidth(min: tileMinWidth)
-                .settingsCardStyle()
+                .cardStyle()
 
                 Spacer()
 
                 VStack(spacing: 14) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: 6) {
                         Image(systemName: "clock")
-                            .font(.system(size: 22, weight: .semibold))
+                            .font(.headline)
                             .foregroundStyle(.secondary)
 
-                        Text("Истекает через:")
-                            .font(.system(size: 22, weight: .semibold))
+                        Text(String(localized: "profile.expires"))
+                            .font(.headline)
                             .foregroundStyle(.secondary)
                     }
 
@@ -187,7 +195,7 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 28)
                 .tileWidth(min: tileMinWidth)
-                .settingsCardStyle()
+                .cardStyle()
 
                 Spacer()
 
@@ -198,16 +206,16 @@ struct ContentView: View {
                         Image(systemName: "arrow.clockwise")
                             .font(.system(size: 20, weight: .semibold))
 
-                        Text("Обновить токен")
+                        Text(String(localized: "profile.refresh"))
                             .font(.system(size: 22, weight: .semibold))
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 18)
+                    .padding(.vertical, 20)
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.primary)
                 .tileWidth(min: tileMinWidth)
-                .settingsCardStyle()
+                .cardStyle()
 
                 Button {
                     Task { await vm.logout() }
@@ -216,16 +224,16 @@ struct ContentView: View {
                         Image(systemName: "rectangle.portrait.and.arrow.right")
                             .font(.system(size: 20, weight: .semibold))
 
-                        Text("Выйти")
+                        Text(String(localized: "profile.logout"))
                             .font(.system(size: 22, weight: .semibold))
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 18)
+                    .padding(.vertical, 20)
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.red)
                 .tileWidth(min: tileMinWidth)
-                .settingsCardStyle()
+                .cardStyle()
             }
             .frame(maxWidth: 560)
             .frame(maxWidth: .infinity)
@@ -234,17 +242,18 @@ struct ContentView: View {
 
     private var avatar: some View {
         Circle()
-            .fill(Color(.secondarySystemGroupedBackground))
+            .fill(Color.gray.opacity(0.18))
             .frame(width: 125, height: 125)
             .overlay(
                 Image(systemName: "person.fill")
-                    .font(.system(size: 54, weight: .semibold))
+                    .font(.system(size: 52, weight: .semibold))
                     .foregroundStyle(.secondary)
             )
             .overlay(
                 Circle()
-                    .strokeBorder(Color(.separator).opacity(0.35), lineWidth: 0.5)
+                    .strokeBorder(Color.black.opacity(0.04), lineWidth: 1)
             )
+            .shadow(color: Color.black.opacity(0.05), radius: 14, x: 0, y: 8)
     }
 
     private func profileRow(title: String, value: String) -> some View {
@@ -266,11 +275,19 @@ struct ContentView: View {
     }
 
     private func expiresText(now: Date) -> String {
-        guard let seconds = vm.secondsUntilAccessTokenExpires(from: now) else { return "—" }
-        if seconds <= 0 { return "0 сек" }
+        guard let seconds = vm.secondsUntilAccessTokenExpires(from: now) else {
+            return "—"
+        }
+        if seconds <= 0 { return String(localized: "time.zeroSeconds") }
+
         let mins = seconds / 60
         let secs = seconds % 60
-        return mins >= 1 ? "\(mins) мин" : "\(secs) сек"
+
+        if mins >= 1 {
+            return String.localizedStringWithFormat(String(localized: "time.minutes"), mins)
+        } else {
+            return String.localizedStringWithFormat(String(localized: "time.seconds"), secs)
+        }
     }
 
     private var loadingOverlay: some View {
@@ -278,7 +295,8 @@ struct ContentView: View {
             if vm.isLoading {
                 ZStack {
                     Color.black.opacity(0.3).ignoresSafeArea()
-                    ProgressView().scaleEffect(1.5)
+                    ProgressView()
+                        .scaleEffect(1.5)
                 }
             }
         }
@@ -291,8 +309,10 @@ private extension View {
             .frame(maxWidth: .infinity)
             .frame(minWidth: min)
     }
+}
 
-    func settingsCardStyle() -> some View {
+private extension View {
+    func cardStyle() -> some View {
         self
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -300,7 +320,8 @@ private extension View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color(.separator).opacity(0.25), lineWidth: 0.5)
+                    .stroke(Color.black.opacity(0.04), lineWidth: 1)
             )
+            .shadow(color: Color.black.opacity(0.04), radius: 12, x: 0, y: 8)
     }
 }

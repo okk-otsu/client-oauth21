@@ -1,0 +1,40 @@
+/* 
+  Localizable.strings
+  cli-oauth21
+
+  Created by MacBook on 02.03.2026.
+  
+*/
+
+"common.ok" = "ОК";
+"common.error.title" = "Ошибка";
+"common.done.title" = "Готово";
+
+"auth.checking" = "Проверяем сессию…";
+"auth.title.login" = "Вход";
+"auth.field.username" = "Имя пользователя";
+"auth.field.password" = "Пароль";
+"auth.action.login" = "Войти";
+"auth.action.registerLogin" = "Регистрация и вход";
+"auth.action.resetAll" = "Сбросить всё";
+
+"profile.field.id" = "ID";
+"profile.field.username" = "Имя пользователя";
+"profile.field.updated" = "Дата обновления";
+"profile.expires" = "Истекает через:";
+"profile.refresh" = "Обновить токен";
+"profile.logout" = "Выйти";
+
+"time.zeroSeconds" = "0 сек";
+"time.seconds" = "%d сек";
+"time.minutes" = "%d мин";
+
+"error.rateLimited.retryAfter" = "Слишком много запросов. Подождите %d сек.";
+"error.rateLimited.default" = "Слишком много запросов. Попробуйте позже.";
+"error.invalidCredentials" = "Неверное имя пользователя или пароль.";
+"error.userAlreadyExists" = "Пользователь уже существует. Войдите.";
+
+"success.loggedIn" = "Вы вошли в аккаунт.";
+"success.registeredAndLoggedIn" = "Регистрация и вход выполнены.";
+"success.tokenRefreshed" = "Токен обновлён.";
+
